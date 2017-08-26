@@ -11,6 +11,18 @@ def convert(hex, alphabet=BASE64_CHARS)
     }.join('')
 end
 
+def decode_hex_to_bytes(input)
+  input.chars.map { |c| c.to_i(16) }.each_slice(2).map { |(a,b)| (a<<4) | b }
+end
+
+def fixed_xor(input, xor_key)
+  decode_hex_to_bytes(input)
+    .zip(decode_hex_to_bytes(xor_key))
+    .map { |s,k| s ^ k }
+    .map { |b| b.to_s(16) }
+    .join('')
+end
+
 describe 'challenge 1' do
   it 'converts hex to base 64' do
     expect(
