@@ -1,4 +1,6 @@
 require 'rspec'
+require 'set'
+require 'pp'
 
 BASE64_CHARS = ['A'..'Z', 'a'..'z', '0'..'9', ['+', '/']].map(&:to_a).flatten
 
@@ -39,5 +41,34 @@ describe 'challenge 2' do
         '686974207468652062756c6c277320657965'
       )
     ).to eq '746865206b696420646f6e277420706c6179'
+  end
+end
+
+
+TOP_CHARACTERS = Set.new('ETAOINSRHDLetaoinsrhdl '.split(//))
+def score(input, top_characters=TOP_CHARACTERS)
+  input
+    .chars
+    .partition { |c| top_characters.include? c }
+    .tap do |(good, bad)|
+      return (good.count * 1.0) / (good.count + bad.count)
+    end
+end
+
+def decrypt(input)
+  bytes = decode_hex_to_bytes(input)
+  # possible values for the 1-char xor key
+  candidates = 32..126
+
+  candidates
+    .map { |key| bytes.map { |b| b ^ key }.pack('C*') }
+    .max_by { |str| score(str)}
+end
+
+describe 'challenge 3' do
+  it 'decrypts' do
+    expect(
+      decrypt('1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736')
+    ).to eq "Cooking MC's like a pound of bacon"
   end
 end
