@@ -158,3 +158,20 @@ describe 'challenge 4' do
              "Now that the party is jumping\n"]
   end
 end
+
+def repeated_xor(input, key:)
+  bit = key.bytes.cycle
+
+  input.bytes.map { |b| sprintf "%02x", (b ^ bit.next) }.join ''
+end
+
+describe 'challenge 5', focus: true do
+  it 'does repeating key xor' do
+    expect(
+      repeated_xor("Burning 'em, if you ain't quick and nimble\n" +
+                   "I go crazy when I hear a cymbal",
+                   key: 'ICE')
+    ).to eq '0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272' +
+            'a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f'
+  end
+end
