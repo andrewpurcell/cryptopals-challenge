@@ -44,34 +44,39 @@ describe 'challenge 2' do
   end
 end
 
-CHAR_FREQUENCIES = [
-  0.08167, 0.01492, 0.02782, 0.04253, 0.12702, 0.02228, 0.02015,  # A-G
-  0.06094, 0.06966, 0.00153, 0.00772, 0.04025, 0.02406, 0.06749,  # H-N
-  0.07507, 0.01929, 0.00095, 0.05987, 0.06327, 0.09056, 0.02758,  # O-U
-  0.00978, 0.02360, 0.00150, 0.01974, 0.00074                     # V-Z
-]
-
 module EnglishChecker
+  CHAR_FREQUENCIES = {"a"=>0.08167, "b"=>0.01492, "c"=>0.02782, "d"=>0.04253, "e"=>0.12702,
+                      "f"=>0.02228, "g"=>0.02015, "h"=>0.06094, "i"=>0.06966, "j"=>0.00153,
+                      "k"=>0.00772, "l"=>0.04025, "m"=>0.02406, "n"=>0.06749, "o"=>0.07507,
+                      "p"=>0.01929, "q"=>0.00095, "r"=>0.05987, "s"=>0.06327, "t"=>0.09056,
+                      "u"=>0.02758, "v"=>0.00978, "w"=>0.0236, "x"=>0.0015, "y"=>0.01974,
+                      "z"=>0.00074}
+
   def printable?(str)
+    # 9, 10 are \n and \t
     str.bytes.all? { |b| (32..126).cover?(b) || [9, 10].include?(b) }
   end
 
   def character_frequency(input)
     range = 'a'..'z'
-    valid, ignored = input.downcase.chars.partition { |c| range.cover? c }
+    # assertion to make sure we can't divide by zero
+    raise unless range.to_a == CHAR_FREQUENCIES.keys
 
-    return Float::INFINITY unless valid.length
+    valid = input.downcase.chars.select { |c| range.cover? c }
 
-    freq_map = range.map { |c| [c.bytes.first, 0] }.to_h
-    valid.map { |c| c.bytes.first }.reduce(freq_map) { |a, c|
+    return Float::INFINITY unless valid.length > 0
+
+    freq_map = range.map { |c| [c, 0] }.to_h
+    # chi^2 error calculation
+    valid
+      .reduce(freq_map) { |a, c|
         a[c] += 1
         a
-    }.map { |c, freq|
-      [c - 97, freq.to_f / (valid.length || 1000000)]
-    }.map { |c, f|
-      x = ((f - CHAR_FREQUENCIES[c])**2) / (CHAR_FREQUENCIES[c])
-      x.nan? ? Float::INFINITY : x
-    }.reduce(:+)
+      }.map { |c, freq|
+        [c, freq.to_f / valid.length]
+      }.map { |c, f|
+        x = ((f - CHAR_FREQUENCIES[c])**2) / (CHAR_FREQUENCIES[c])
+      }.reduce(:+)
   end
 
   def avg_word_length(input)
@@ -80,7 +85,11 @@ module EnglishChecker
   end
 
   def all_printable_score(input)
-    printable?(input) ? -1.5 : 1
+    printable?(input) ? -2.0 : 1
+  end
+
+  def safe_print(str)
+    str.gsub(/([^a-zA-Z0-9 ])/, '*')
   end
 
   def score(input, debug=false)
@@ -98,53 +107,53 @@ module EnglishChecker
     }.values.reduce(:+)
   end
 end
-include EnglishChecker
 
-def decrypt(input)
-  bytes = decode_hex_to_bytes(input)
-  # possible values for the 1-char xor key
-  candidates = 32..126
+class Decrypter
+  include EnglishChecker
 
-  candidates
-    .map { |key| bytes.map { |b| b ^ key }.pack('c*') }
-    .min_by { |str| score(str) }
+  def decrypt(input)
+    bytes = decode_hex_to_bytes(input)
+    # possible values for the 1-char xor key
+    candidates = 32..126
+
+    candidates
+      .map { |key| bytes.map { |b| b ^ key }.pack('c*') }
+      .min_by { |str| score(str) }
+  end
+
+  def find_xored_needle(haystack_file)
+    File
+      .readlines(haystack_file)
+      .map { |line|
+        line.chomp!
+        decrypted = decrypt(line)
+        _score = score(decrypted)
+        [line, decrypted, _score]
+      }
+      .sort_by { |processed| processed.last }
+      .first.slice(0,2)
+  end
 end
+
 
 describe 'challenge 3' do
   it 'decrypts' do
     expect(
-      decrypt('1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736')
+      Decrypter.new.decrypt('1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736')
     ).to eq "Cooking MC's like a pound of bacon"
   end
 
   it 'decrypts the next challenge' do
     expect(
-      decrypt('7b5a4215415d544115415d5015455447414c155c46155f4058455c5b523f')
+      Decrypter.new.decrypt('7b5a4215415d544115415d5015455447414c155c46155f4058455c5b523f')
     ).to eq "Now that the party is jumping\n"
   end
 end
 
-def safe_print(str)
-  str.gsub(/([^a-zA-Z0-9 ])/, '*')
-end
-
-def find_xored_needle(haystack_file)
-  File
-    .readlines(haystack_file)
-    .map { |line|
-      line.chomp!
-      decrypted = decrypt(line)
-      _score = score(decrypted)
-      [line, decrypted, _score]
-    }
-    .sort_by { |processed| processed.last }
-    .first.slice(0,2)
-end
-
-describe 'challenge 4', :focus do
+describe 'challenge 4' do
   it 'finds the right line' do
     expect(
-      find_xored_needle('s1c4_data.txt')
+      Decrypter.new.find_xored_needle('s1c4_data.txt')
     ).to eq ['7b5a4215415d544115415d5015455447414c155c46155f4058455c5b523f',
              "Now that the party is jumping\n"]
   end
